@@ -1,6 +1,4 @@
-## My Project Title
-
-**Analyse der Lieferzuverlässigkeit anhand von Lieferplänen in Automobilindustrie**
+## Analyse der Lieferzuverlässigkeit anhand von Lieferplänen in Automobilindustrie
 
 ---
 
