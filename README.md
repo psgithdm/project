@@ -4,6 +4,13 @@
 
 ---
 
+### Student
+
+**Student name:** Priscila Strömsdörfer - ps178@hdm-stuttgart.de
+**GIT-Account** psgithdm
+
+---
+
 ### Project description
 
 Die Sicherstellung der Lieferzuverlässigkeit in der Automobilindustrie ist entscheidend. Probleme mit Liefertermintreue können Produktionsprozesse stören und die Effizienz der Lieferkette beeinträchtigen. Mithilfe von datenbasierten Analysen sollen Schwachstellen identifiziert und Optimierungspotenziale aufgedeckt werden.
