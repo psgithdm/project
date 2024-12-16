@@ -1,18 +1,18 @@
 ## My Project Title
 
+**Analyse der Lieferzuverlässigkeit anhand von Lieferplänen in Automobilindustrie**
 
 ---
 
 ### Project description
 
-*Your description here*
+Die Sicherstellung der Lieferzuverlässigkeit in der Automobilindustrie ist entscheidend. Probleme mit Liefertermintreue können Produktionsprozesse stören und die Effizienz der Lieferkette beeinträchtigen. Mithilfe von datenbasierten Analysen sollen Schwachstellen identifiziert und Optimierungspotenziale aufgedeckt werden.
 
+Ein typisches Beispiel: Ein wichtiger Lieferant für Radlager meldet einen Lieferverzug von drei Tagen aufgrund von logistischen Problemen. In der Zwischenzeit kann die Montage der Fahrzeuge nicht fortgesetzt werden, da die benötigten Teile fehlen. Dieser Stillstand verursacht nicht nur direkte Produktionskosten, sondern führt auch zu Verzögerungen bei der Auslieferung der Fahrzeuge an Kunden. In hochvernetzten Lieferketten können solche Verzögerungen dominoartige Auswirkungen haben, was das Risiko von Umsatzverlusten und einer geringeren Kundenzufriedenheit erhöht.
 
 ---
 
 ### Project structure
-
-
 
 ```nohighlight
 ├── README.md          <- The top-level README for people using this project.
