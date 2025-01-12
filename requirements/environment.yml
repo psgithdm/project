@@ -16,3 +16,12 @@ dependencies:
   - matplotlib
   - seaborn
   - statsmodels
+  - pandas
+  - matplotlib
+  - plotly
+  - scikit-learn
+  - joblib
+  - streamlit
+  - fpdf
+  - pip
+  - python-kaleido

@@ -1,0 +1,6 @@
+[theme]
+primaryColor = "#1976D2"      # Primärfarbe (z. B. Blau)
+backgroundColor = "#F4F4F4"   # Hintergrundfarbe der App
+secondaryBackgroundColor = "#E3E3E3" # Hintergrundfarbe für Widgets
+textColor = "#000000"         # Textfarbe
+font = "sans serif"           # Schriftart (serif, sans serif, monospace)
