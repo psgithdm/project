@@ -1,15 +1,28 @@
 import pandas as pd
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 import plotly.express as px
 import streamlit as st
 from fpdf import FPDF
 from datetime import datetime
-import plotly.express as px
 import plotly.io as pio
 import os
+import io
 import warnings
+import seaborn as sns
+import tempfile
+from html2image import Html2Image
+from plotly.tools import mpl_to_plotly
 
 warnings.filterwarnings("ignore", message="missing ScriptRunContext!")
+
+# konfigurationen für PNG-Speichern unter reports/images
+pio.kaleido.scope.default_format = "png" 
+current_dir = os.getcwd()
+images_dir = os.path.join(current_dir, "images")
+os.makedirs(images_dir, exist_ok=True)
+# bei jede Export (Beispiel):
+#png_path = os.path.join(images_dir, "liefertreue_anteil.png")
+#pio.write_image(anteil_liefertreue_bar, png_path, width=794, height=400, scale=3)
 
 # Sidebar
 # Wide Mode aktivieren
@@ -153,17 +166,21 @@ with tabs[0]:
         Parameters:
             label (str): Beschriftung der Kennzahl.
             value (str/int/float): Wert der Kennzahl.
-            background_color (str): Hintergrundfarbe (Standard: "#1976D2" für grün).
+            background_color (str): Hintergrundfarbe (Standard: "#1976D2" für Blau).
             text_color (str): Schriftfarbe (Standard: "white").
         """
         return f"""
-        <div style="background-color: {background_color}; 
-                    padding: 15px; 
-                    border-radius: 15px; 
-                    text-align: center; 
-                    color: {text_color};">
-            <h5>{label}</h5>
-            <h3>{value}</h3>
+        <div style='
+            background-color: #1976D2;
+            color: #fff;
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            flex: 1;
+            font-family: "Arial", sans-serif;
+            font-size: 16px;'>
+            <div style='font-size: 24px; margin-bottom: 10px;'>{label}</div>
+            <div style='font-size: 36px; font-weight: bold;'>{value}</div>
         </div>
         """
     
@@ -174,7 +191,7 @@ with tabs[0]:
     col1.markdown(styled_metric("Anzahl Lieferungen", total_deliveries), unsafe_allow_html=True)
     col2.markdown(styled_metric("Pünktliche Lieferungen", on_time), unsafe_allow_html=True)
     col3.markdown(styled_metric("Verspätete Lieferungen", delayed), unsafe_allow_html=True)
-    col4.markdown(styled_metric("Nicht termingerechte", f"{reliability_no_percentage:.2f}%"), unsafe_allow_html=True)
+    col4.markdown(styled_metric("Anteil Liefertreuemangel", f"{reliability_no_percentage:.2f}%"), unsafe_allow_html=True)
 
     # Leerzeichen zwischen den Reihen
     st.markdown("<br>", unsafe_allow_html=True)
@@ -206,19 +223,19 @@ with tabs[0]:
     #st.write("Liefertreue-Daten (für Debugging):", liefertreue_counts)
 
     # Horizontales Balkendiagramm erstellen
-    fig_bar = px.bar(
+    anteil_liefertreue_bar = px.bar(
         liefertreue_counts,
         x="count", 
         y="Liefertreue (Ja/Nein)",
         orientation='h',  # Horizontal
-        title="Anteil der Liefertreue",
+        title="Liefertreue Anteil",
         labels={"Anzahl": "Anzahl der Lieferungen", "Liefertreue": "Liefertreue (Ja/Nein)"},
         color="Liefertreue (Ja/Nein)",
         color_discrete_sequence=["#1976D2", "#63B2EE"],
         text="count"
     )
 
-    fig_bar.update_layout(
+    anteil_liefertreue_bar.update_layout(
         xaxis_title="Anzahl der Lieferungen",
         yaxis_title="Liefertreue (Ja/Nein)",
         showlegend=False,  # Keine Legende
@@ -226,23 +243,27 @@ with tabs[0]:
     )
 
     # Anzeige im Streamlit-Dashboard
-    col1.plotly_chart(fig_bar, use_container_width=True)
-    pio.write_image(fig_bar, "liefertreue_chart.png", width=794, height=400)
+    col1.plotly_chart(anteil_liefertreue_bar, use_container_width=True)
+    pio.write_image(anteil_liefertreue_bar, "../reports/images/liefertreue_anteil.png", width=794, height=400,scale=3)
 
     # Zeitverlauf: Liefertreue
-    daily_deliveries = (
+    liefertreue_zeit = (
         filtered_df.groupby(pd.to_datetime(filtered_df["Lieferdatum (Soll)"]).dt.date)["Liefertreue (Ja/Nein)"]
         .value_counts()
         .unstack(fill_value=0)
     )
-    daily_deliveries["Datum"] = daily_deliveries.index
-    fig_line = px.area(
-        daily_deliveries, x="Datum", y=["Ja", "Nein"],
+    liefertreue_zeit["Monat/Jahr"] = liefertreue_zeit.index
+    
+    liefertreue_zeit_line = px.area(
+        liefertreue_zeit, x="Monat/Jahr", y=["Ja", "Nein"],
         title="Liefertreue über die Zeit",
         labels={"value": "Anzahl", "variable": "Status"}
     )
-    col2.plotly_chart(fig_line, use_container_width=True)
     
+    #liefertreue_zeit_line.update_traces(marker=dict(colorscale="Viridis"))
+    col2.plotly_chart(liefertreue_zeit_line, use_container_width=True)
+    pio.write_image(liefertreue_zeit_line, "../reports/images/liefertreue_zeit_linie.png", width=794, height=400, scale=2)
+
     # Abweichungen pro Land berechnen
     abweichung_nach_land = filtered_df.groupby("Land").agg({
         "Soll-Menge": "sum",
@@ -257,7 +278,7 @@ with tabs[0]:
     abweichung_nach_land["Unterlieferung"] = abweichung_nach_land["Abweichung"].apply(lambda x: x if x < 0 else 0)
 
     # Bar-Chart erstellen
-    fig_stacked_bar = px.bar(
+    ueber_unterlieferung_bar = px.bar(
         abweichung_nach_land,
         x="Land",
         y=["Überlieferung", "Unterlieferung"],  # Zwei separate Balken: Über- und Unterlieferung
@@ -268,7 +289,7 @@ with tabs[0]:
     )
 
     # Layout anpassen
-    fig_stacked_bar.update_layout(
+    ueber_unterlieferung_bar.update_layout(
         barmode="relative",  # Balken gestapelt (relativ)
         xaxis_title="Land",
         yaxis_title="Abweichung (Ist - Soll)",
@@ -277,7 +298,8 @@ with tabs[0]:
     )
 
     # Anzeige im Streamlit-Dashboard
-    col3.plotly_chart(fig_stacked_bar, use_container_width=True)
+    col3.plotly_chart(ueber_unterlieferung_bar, use_container_width=True)
+    pio.write_image(ueber_unterlieferung_bar, "../reports/images/ueber_unterlieferung_land_bar.png", width=794, height=400,scale=3)
 
     # CSS für breitere Scrollbar hinzufügen
     st.markdown(
@@ -341,6 +363,22 @@ with tabs[1]:
     
     last_six_months = pd.date_range(end=max_date, periods=6, freq="M").to_period("M")
 
+    # Berechnung der Top-Lieferanten basierend auf "Liefertreue = Nein" in den letzten 6 Monaten
+    lieferanten_risiko = (
+        filtered_supplier_data[
+            pd.to_datetime(filtered_supplier_data["Lieferdatum (Soll)"]).dt.to_period("M").isin(last_six_months)
+        ]
+        .groupby("Lieferantenbezeichnung")["Liefertreue (Ja/Nein)"]
+        .apply(lambda x: round((x == "Nein").mean() * 100, 2))  # Anteil von "Nein" in %
+        .reset_index()
+        .rename(columns={"Liefertreue (Ja/Nein)": "Anteil Nein (%)"})
+        .sort_values(by="Anteil Nein (%)", ascending=False)  # Sortieren nach höchstem Risiko
+    )
+
+    # Auswahl der Top 5 Lieferanten mit höchstem Anteil "Nein"
+    top_lieferanten = lieferanten_risiko.head(10)["Lieferantenbezeichnung"].tolist()
+
+    # Filterung der Hauptdaten für die Top-Lieferanten
     lieferperformance = (
         filtered_supplier_data[
             pd.to_datetime(filtered_supplier_data["Lieferdatum (Soll)"]).dt.to_period("M").isin(last_six_months)
@@ -351,38 +389,79 @@ with tabs[1]:
         ])
         .agg({
             "Lieferscheinnummer": "count",
-            "Liefertreue (Ja/Nein)": lambda x: round((x == "Ja").mean() * 100, 2)  # Anteil mit 2 Nachkommastellen
+            "Liefertreue (Ja/Nein)": lambda x: round((x == "Ja").mean() * 100, 2)  # Anteil "Ja" in %
         })
         .reset_index()
         .rename(columns={"Lieferdatum (Soll)": "Monat", "Liefertreue (Ja/Nein)": "Zuverlässigkeit"})
     )
 
-    lieferperformance_pivot = lieferperformance.pivot(index="Monat", columns="Lieferantenbezeichnung", values="Zuverlässigkeit").fillna(0)
-    lieferperformance_pivot.index = lieferperformance_pivot.index.astype(str)
-    df_lieferperformance = lieferperformance_pivot.reset_index().melt(id_vars=["Monat"], var_name="Lieferant", value_name="Zuverlässigkeit")
+    # Filtere nur die Top-Lieferanten
+    filtered_lieferperformance = lieferperformance[lieferperformance["Lieferantenbezeichnung"].isin(top_lieferanten)]
 
-    fig = px.line(
+    # Pivotieren und Umstrukturieren der gefilterten Daten
+    lieferperformance_pivot = filtered_lieferperformance.pivot(
+        index="Monat", columns="Lieferantenbezeichnung", values="Zuverlässigkeit"
+    ).fillna(0)
+    lieferperformance_pivot.index = lieferperformance_pivot.index.astype(str)
+    df_lieferperformance = lieferperformance_pivot.reset_index().melt(
+        id_vars=["Monat"], var_name="Lieferant", value_name="Zuverlässigkeit"
+    )
+
+    # Linien-Diagramm erstellen
+    lieferperformance_linie = px.line(
         df_lieferperformance,
         x="Monat",
         y="Zuverlässigkeit",
         color="Lieferant",
-        title=f"Lieferperformance der letzten 6 Monate (bis {max_date.strftime('%B %Y')})",
+        title="Lieferperformance Top 10 - Kritische Lieferanten in den letzten 6 Monaten",
         labels={"Monat": "Monat", "Zuverlässigkeit": "Zuverlässigkeit (%)", "Lieferant": "Lieferant"}
     )
 
-    fig.update_layout(
-        yaxis=dict(ticksuffix="%", range=[0, 100]),
-        xaxis=dict(showgrid=True),
-        plot_bgcolor="white",
+    # Layout und Traces anpassen
+    lieferperformance_linie.update_layout(
+        yaxis=dict(ticksuffix="%", range=[0, 100]),  # Y-Achse mit Prozentwerten
+        xaxis=dict(showgrid=True),  # X-Achse mit Grid
+        plot_bgcolor="rgba(0,0,0,0)",  # Hintergrundfarbe weiß
+        hovermode="x unified",  # Hovermodus einheitlich
+        colorway=px.colors.qualitative.Plotly  # Standard-Farbschema
+    ).update_traces(
+        mode="lines+markers"  # Linien und Marker
     )
-    fig.update_traces(mode="lines+markers")
-    fig.update_layout(hovermode="x unified")
 
-    col1.plotly_chart(fig, use_container_width=True)
+    col1.plotly_chart(lieferperformance_linie, use_container_width=True)
+    #pio.write_image(lieferperformance_linie, "lieferperformance_linie.png", width=1200, height=550,scale=3)
+    #plt.savefig("lieferperformance_linie_matplotlib2.png", dpi=300, bbox_inches="tight")
+        
+    # Plot-Farben
+    farben = sns.color_palette("tab10", n_colors=df_lieferperformance["Lieferant"].nunique())
+
+    # Matplotlib-Plot erstellen
+    plt.figure(figsize=(16, 8))
+    for i, (lieferant, group) in enumerate(df_lieferperformance.groupby("Lieferant")):
+        plt.plot(
+            group["Monat"],
+            group["Zuverlässigkeit"],
+            label=lieferant,
+            color=farben[i],
+            marker="o",
+            linewidth=2
+        )
+
+    # Achsen und Titel anpassen
+    plt.title("Lieferperformance Top 10 - Kritische Lieferanten in den letzten 6 Monaten", fontsize=16)
+    plt.xlabel("Monat", fontsize=12)
+    plt.ylabel("Zuverlässigkeit (%)", fontsize=12)
+    plt.ylim(0, 100)
+    plt.grid(True, which="major", linestyle="--", alpha=0.5)
+    plt.legend(title="Lieferant", fontsize=10, title_fontsize=12, loc="best")
+
+    # Plot als PNG speichern
+    plt.tight_layout()
+    plt.savefig("../reports/images/top10_lieferperformance_linie.png", dpi=300, bbox_inches="tight")
 
     col2, col3 = st.columns(2)
     
-    # 1. Liefertreue Verteilung (Gestapeltes Balkendiagramm)
+    # Liefertreue Verteilung (Gestapeltes Balkendiagramm)
     liefertreue_summary = (
         filtered_supplier_data.groupby(["Lieferantenbezeichnung", "Liefertreue (Ja/Nein)"])["Lieferscheinnummer"]
         .count()
@@ -442,8 +521,9 @@ with tabs[1]:
     liefertreue_barchart.update_layout(barmode="stack", plot_bgcolor="rgba(0,0,0,0)")
     liefertreue_barchart.update_traces(textposition="inside")
     col2.plotly_chart(liefertreue_barchart, use_container_width=True)
+    pio.write_image(liefertreue_barchart, "../reports/images/top10_liefertreue_bar.png", width=794, height=400,scale=3)
 
-    # 2. Mengenabweichung nach Lieferant
+    # Mengenabweichung nach Lieferant
     top_10_mengeabweichung = (
         filtered_supplier_data.groupby("Lieferantenbezeichnung")["Mengenabweichung"]
         .sum()
@@ -463,6 +543,7 @@ with tabs[1]:
         labels={"Mengenabweichung": "Mengenabweichung", "Lieferantenbezeichnung": "Lieferant"}
     )
     col3.plotly_chart(mengeabweichung_bar, use_container_width=True)
+    pio.write_image(mengeabweichung_bar, "../reports/images/top10_mengeabweichung_bar.png", width=794, height=400,scale=3)
 
     # Lieferantentabelle erstellen
     supplier_table = filtered_supplier_data[[
@@ -563,13 +644,13 @@ with tabs[3]:
     st.title("PDF-Report generieren")
     
     # Spaltenauswahl für den Export
-    st.markdown("### Wähle Spalten für den PDF-Export:")
+    st.markdown("### Hier können die gewünschte Spalten für den PDF-Export ausgewählt werden:")
     selected_columns = st.multiselect(
         "Spalten auswählen:", options=list(df_cleaned.columns), default=list(df_cleaned.columns)
     )
 
     # Spaltenauswahl für Sortierung
-    st.markdown("### Wähle Spalte für die Sortierung:")
+    st.markdown("### Auswahl der Spalte für die Sortierung:")
     sort_column = st.selectbox("Sortieren nach:", options=selected_columns)
 
     # Sortierreihenfolge festlegen
@@ -583,8 +664,9 @@ with tabs[3]:
         # PDF erstellen
         pdf = FPDF()
         pdf.add_page()
-        pdf.set_font("Arial", size=12)
-        pdf.cell(200, 10, txt="Report", ln=True, align="C")
+        pdf.set_font("Arial", size=14)
+        pdf.set_text_color(25, 118, 210)
+        pdf.cell(200, 10, txt="Report", ln=True, align="L")
 
         # Hinzufügen der Tabelle
         pdf.set_font("Arial", size=10)
@@ -614,6 +696,174 @@ with tabs[3]:
         else:
             st.warning("Bitte wähle mindestens eine Spalte aus.")
    
+    content1 = st.text_area("Inhalt von Tab 1", "Dies ist der Inhalt von Tab 1.")
+    hidden_content = {"Tab 2": "Inhalt von Tab 2. Dies ist der Inhalt von Tab 2."}
+    content3 = st.text_area("Inhalt von Tab 3", "Dies ist der Inhalt von Tab 3.")
+    
+    # Button für PDF-Export
+    # Auswahl: Nur Diagramm oder Diagramm + Text
+    export_mode = st.radio(
+        "Report-Methode auswählen:",
+        ("Nur Diagramme", "Text und Diagramme")
+    )
+
+    # Button für PDF-Export
+    if st.button("Als PDF drucken"):
+        pdf = FPDF()
+        pdf.set_auto_page_break(auto=True, margin=15)
+
+        #Seite 1: Metriken
+        # Metriken als HTML zu Bild konvertieren
+        hti = Html2Image()
+        output_dir = tempfile.gettempdir()
+        output_file = "metrics_image.png"
+        hti.output_path = "../reports/images/"
+        # Bild speichern - Reihe 1 und 2
+        images_dir = os.path.join(current_dir, "images")
+
+        # Metriken als HTML
+        metrics_row_1_html = f"""
+        <div style='
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+            width: 100%;
+            margin-top: 30px;'>
+            {styled_metric("Anzahl Lieferanten", unique_suppliers)}
+            {styled_metric("Anzahl Materialien", unique_materials)}
+            {styled_metric("Anzahl Lieferscheine", unique_invoices)}
+            {styled_metric("Anzahl Länder", unique_countries)}
+        </div>
+        """
+        
+                # Metriken als HTML
+        metrics_row_2_html = f"""
+        <div style='
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+            width: 100%;
+            margin-top: 30px;'>
+            {styled_metric("Anzahl Lieferungen", total_deliveries)}
+            {styled_metric("Pünktliche Lieferungen", on_time)}
+            {styled_metric("Verspätete Lieferungen", delayed)}
+            {styled_metric("Anteil Liefertreuemangel", f"{reliability_no_percentage:.2f}%")}
+        </div>
+        """
+        # Kombiniere beide Reihen in einer Seite
+        metrics_html = f"""
+        <div style='width: 100%;'>
+            {metrics_row_1_html}
+            {metrics_row_2_html}
+        </div>
+        """
+        
+           metrics_image_path = os.path.join(images_dir, output_file)
+        os.makedirs(images_dir, exist_ok=True)
+        hti.screenshot(html_str=metrics_html, save_as=output_file)
+        
+        # PDF-Seite hinzufügen
+        pdf.add_page()
+        pdf.set_font("Arial", size=16)
+        pdf.set_text_color(25, 118, 210)
+        pdf.cell(200, 10, txt="Allgemeine - Kennzahlen", ln=True, align="L")
+        pdf.image(metrics_image_path, x=10, y=30, w=180)
+    
+        # Funktion: Nur Diagramme
+        def add_plotly_chart_to_pdf(fig, pdf, title):
+            pdf.add_page()
+            pdf.set_font("Arial", size=16)
+            pdf.cell(200, 10, txt=title, ln=True, align="L")
+
+            # Diagramm als Bild speichern
+            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmpfile:
+                fig.write_image(tmpfile.name)
+                pdf.image(tmpfile.name, x=10, y=30, w=180)
+
+        # Funktion: Text und Diagramme
+        def add_text_and_chart_to_pdf(text, fig, pdf, title):
+            pdf.add_page()
+            pdf.set_font("Arial", size=16)
+            pdf.set_text_color(25, 118, 210)
+            # Titel der Seite
+            pdf.cell(200, 10, txt=title, ln=True, align="L")
+
+            # Text hinzufügen
+            pdf.set_font("Arial", size=12)
+            pdf.multi_cell(0, 10, text)
+
+            # Platz für das Diagramm reservieren
+            pdf.ln(5)  # Abstand nach Text
+
+            # Diagramm als Bild speichern und hinzufügen
+            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmpfile:
+                fig.write_image(tmpfile.name)
+                pdf.image(tmpfile.name, x=10, y=pdf.get_y() + 10, w=180)
+
+        def add_mtext_and_charts_to_pdf(text, fig_list, pdf, title, orientation="P"):
+            """
+            Fügt Text und Diagramme zur PDF hinzu, mit dynamischer Seitenorientierung.
+
+            Args:
+                text (str): Der hinzuzufügende Text.
+                fig_list (list): Liste der Diagramme.
+                pdf (FPDF): Das FPDF-Objekt.
+                title (str): Der Titel der Seite.
+                orientation (str): Seitenorientierung, "P" für Hochformat, "L" für Querformat.
+            """
+            pdf.add_page(orientation=orientation)
+            pdf.set_font("Arial", size=16)
+            pdf.set_text_color(25, 118, 210)
+            
+            # Titel der Seite
+            if orientation == "P":
+                pdf.cell(200, 10, txt=title, ln=True, align="L")
+            elif orientation == "L":
+                pdf.cell(290, 10, txt=title, ln=True, align="L") 
+
+            # Text hinzufügen
+            pdf.set_font("Arial", size=12)
+            pdf.ln(10)  # Abstand nach dem Titel
+            pdf.multi_cell(0, 10, text)
+
+            # Diagramme hinzufügen
+            pdf.ln(10)  # Abstand nach dem Text
+            
+            for fig in fig_list:
+                # Diagramm als Bild speichern und hinzufügen
+                with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmpfile:
+                    fig.write_image(tmpfile.name)
+                    if orientation == "P":
+                        pdf.image(tmpfile.name, x=10, y=pdf.get_y() + 10, w=180)  # Für Hochformat
+                    elif orientation == "L":
+                        pdf.image(tmpfile.name, x=10, y=pdf.get_y() + 10, w=270)  # Für Querformat
+                pdf.ln(90) 
+        
+        diagramme_list_1 = [anteil_liefertreue_bar, ueber_unterlieferung_bar]
+        diagramme_list_2 = [lieferperformance_linie]
+        
+        # Export basierend auf der Auswahl
+        if export_mode == "Nur Diagramme":
+            add_plotly_chart_to_pdf(anteil_liefertreue_bar, pdf, "Diagramm aus Tab 1")
+            add_plotly_chart_to_pdf(liefertreue_zeit_line, pdf, "Diagramm aus Tab 2")
+            add_plotly_chart_to_pdf(ueber_unterlieferung_bar, pdf, "Diagramm aus Tab 3")
+        elif export_mode == "Text und Diagramme":
+            #add_text_and_chart_to_pdf(content1, anteil_liefertreue_bar, pdf, "Tab 1: Text und Diagramm")
+            #add_text_and_chart_to_pdf(content1, liefertreue_zeit_line, pdf, "Tab 2: Text und Diagramm")
+            #add_text_and_chart_to_pdf(content3, ueber_unterlieferung_bar, pdf, "Tab 3: Text und Diagramm")
+            add_mtext_and_charts_to_pdf(content1, diagramme_list_1, pdf, "Liefertreue - Übersicht",orientation="P")
+            add_mtext_and_charts_to_pdf(content1, diagramme_list_2, pdf, "Betrachtung - Top 10 Risiko Lieferante",orientation="L")
+
+        # PDF speichern
+        pdf_path = "tabs_export.pdf"
+        pdf.output(pdf_path)
+        st.success(f"PDF erfolgreich erstellt: {pdf_path}")
+        st.write("Laden Sie die PDF hier herunter:")
+        with open(pdf_path, "rb") as pdf_file:
+            st.download_button(label="Download PDF", data=pdf_file, file_name="tabs_export.pdf")
+            
 # Tab 4: Datenqualität
 with tabs[4]:
     st.title("Datenqualität")
