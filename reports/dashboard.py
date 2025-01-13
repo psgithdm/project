@@ -429,8 +429,9 @@ with tabs[1]:
     )
 
     col1.plotly_chart(lieferperformance_linie, use_container_width=True)
+    
+    # Error: Bild kommt in Schwarz/Weiß statt in Farbe, daher Workaroung mit plt.savefig
     #pio.write_image(lieferperformance_linie, "lieferperformance_linie.png", width=1200, height=550,scale=3)
-    #plt.savefig("lieferperformance_linie_matplotlib2.png", dpi=300, bbox_inches="tight")
         
     # Plot-Farben
     farben = sns.color_palette("tab10", n_colors=df_lieferperformance["Lieferant"].nunique())
@@ -521,8 +522,8 @@ with tabs[1]:
     liefertreue_barchart.update_layout(barmode="stack", plot_bgcolor="rgba(0,0,0,0)")
     liefertreue_barchart.update_traces(textposition="inside")
     col2.plotly_chart(liefertreue_barchart, use_container_width=True)
-    pio.write_image(liefertreue_barchart, "../reports/images/top10_liefertreue_bar.png", width=794, height=400,scale=3)
-
+    pio.write_image(liefertreue_barchart, "../reports/images/top10_liefertreuen_bar.png", width=794, height=400,scale=3)
+    
     # Mengenabweichung nach Lieferant
     top_10_mengeabweichung = (
         filtered_supplier_data.groupby("Lieferantenbezeichnung")["Mengenabweichung"]
@@ -599,31 +600,38 @@ with tabs[2]:
     st.markdown("### Diagramme zur Analyse")
     col1, col2 = st.columns(2)
 
-    top_10_delays = material_risks.sort_values("Anzahl Verspätungen", ascending=False).head(10)
-    top_10_deviations = material_risks.sort_values("Anzahl Mengenabweichungen", ascending=False).head(10)
+    top_10_verspätungen = material_risks.sort_values("Anzahl Verspätungen", ascending=False).head(10)
+    top_10_mengeabweichung_mat = material_risks.sort_values("Anzahl Mengenabweichungen", ascending=False).head(10)
     # Diagramm: Anzahl Verspätungen nach Materialnummer
-    delays_bar = px.bar(
-        top_10_delays,
+    top_10_verspätungen_bar = px.bar(
+        top_10_verspätungen,
         x="Materialnummer",
         y="Anzahl Verspätungen",
         text="Anzahl Verspätungen",
         title="Top 10 Materialien nach Anzahl Verspätungen",
+        color_discrete_sequence=["#1976D2"],
         labels={"Materialnummer": "Materialnummer", "Anzahl Verspätungen": "Anzahl Verspätungen"}
     )
-    delays_bar.update_traces(textposition="outside")
-    col1.plotly_chart(delays_bar, use_container_width=True)
+    top_10_verspätungen_bar.update_traces(marker_color="#1976D2", textposition="inside")
+    top_10_verspätungen_bar.update_layout(plot_bgcolor="rgba(0,0,0,0)")
+    
+    col1.plotly_chart(top_10_verspätungen_bar, use_container_width=True)
+    pio.write_image(top_10_verspätungen_bar, "../reports/images/top_10_verspätungen_bar.png", width=794, height=400,scale=3)
 
     # Diagramm: Anzahl Mengenabweichungen nach Materialnummer
-    deviation_bar = px.bar(
-        top_10_deviations,
+    top10_mengeabweichungen_mat_bar = px.bar(
+        top_10_mengeabweichung_mat,
         x="Materialnummer",
         y="Anzahl Mengenabweichungen",
         text="Anzahl Mengenabweichungen",
         title="Top 10 Materialien nach Anzahl Mengenabweichungen",
         labels={"Materialnummer": "Materialnummer", "Anzahl Mengenabweichungen": "Anzahl Mengenabweichungen"}
     )
-    deviation_bar.update_traces(textposition="outside")
-    col2.plotly_chart(deviation_bar, use_container_width=True)
+    top10_mengeabweichungen_mat_bar.update_traces(marker_color="#1976D2", textposition="inside")
+    top10_mengeabweichungen_mat_bar.update_layout(plot_bgcolor="rgba(0,0,0,0)")
+
+    col2.plotly_chart(top10_mengeabweichungen_mat_bar, use_container_width=True)
+    pio.write_image(top10_mengeabweichungen_mat_bar, "../reports/images/top10_mengenabweichung_mat_bar.png", width=794, height=400,scale=3)
     
     # CSV-Download für Materialtabelle
     material_csv = convert_df_to_csv(material_risks)
@@ -737,7 +745,6 @@ with tabs[3]:
         </div>
         """
         
-                # Metriken als HTML
         metrics_row_2_html = f"""
         <div style='
             display: flex;
@@ -760,7 +767,7 @@ with tabs[3]:
         </div>
         """
         
-           metrics_image_path = os.path.join(images_dir, output_file)
+        metrics_image_path = os.path.join(images_dir, output_file)
         os.makedirs(images_dir, exist_ok=True)
         hti.screenshot(html_str=metrics_html, save_as=output_file)
         
@@ -780,7 +787,7 @@ with tabs[3]:
             # Diagramm als Bild speichern
             with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmpfile:
                 fig.write_image(tmpfile.name)
-                pdf.image(tmpfile.name, x=10, y=30, w=180)
+                #pdf.image(tmpfile.name, x=10, y=30, w=180)
 
         # Funktion: Text und Diagramme
         def add_text_and_chart_to_pdf(text, fig, pdf, title):
@@ -825,7 +832,7 @@ with tabs[3]:
 
             # Text hinzufügen
             pdf.set_font("Arial", size=12)
-            pdf.ln(10)  # Abstand nach dem Titel
+            #pdf.ln(10)  # Abstand nach dem Titel
             pdf.multi_cell(0, 10, text)
 
             # Diagramme hinzufügen
@@ -836,33 +843,129 @@ with tabs[3]:
                 with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmpfile:
                     fig.write_image(tmpfile.name)
                     if orientation == "P":
-                        pdf.image(tmpfile.name, x=10, y=pdf.get_y() + 10, w=180)  # Für Hochformat
+                        pdf.image(tmpfile.name, x=10, y=pdf.get_y() + 10, w=200)  # Für Hochformat
                     elif orientation == "L":
-                        pdf.image(tmpfile.name, x=10, y=pdf.get_y() + 10, w=270)  # Für Querformat
-                pdf.ln(90) 
+                        pdf.image(tmpfile.name, x=10, y=pdf.get_y() + 10, w=300)  # Für Querformat
+                pdf.ln(20) 
         
+        def add_png_text_and_charts_to_pdf(text, fig_or_path_list, pdf, title, orientation="P", image_width = 200, spacing = 20):
+            """
+            Fügt Text und entweder Diagramme (Plotly-Figuren) oder gespeicherte Bilddateien zur PDF hinzu.
+            
+            Args:
+                text (str): Der Text, der auf der Seite hinzugefügt werden soll.
+                fig_or_path_list (list): Eine Liste mit Plotly-Figuren oder Bildpfaden.
+                pdf (FPDF): Das FPDF-Objekt für die PDF.
+                title (str): Der Titel der Seite.
+                orientation (str): Seitenorientierung, "P" für Hochformat, "L" für Querformat.
+            """
+            pdf.add_page(orientation=orientation)
+            pdf.set_font("Arial", size=16)
+            pdf.set_text_color(25, 118, 210)
+
+            # Titel hinzufügen
+            #page_width = 200 if orientation == "P" else 300
+            page_width = 200 if orientation == "P" else 250
+            pdf.cell(page_width, 10, txt=title, ln=True, align="L")
+
+            # Text hinzufügen
+            pdf.set_font("Arial", size=12)
+            pdf.multi_cell(0, 10, text)
+            pdf.ln(10)  # Abstand nach dem Text
+           
+            # Diagramme oder Bilder hinzufügen
+            for item in fig_or_path_list:
+                try:
+                    if isinstance(item, str):  # Wenn es sich um einen Pfad handelt
+                        if os.path.exists(item):  # Überprüfe, ob der Pfad existiert
+                            pdf.image(item, x=pdf.l_margin, y=pdf.get_y(), w=page_width)  # Maximale Breite nutzen
+                    else:  # Wenn es sich um eine Plotly-Figur handelt
+                        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmpfile:
+                            item.write_image(tmpfile.name, width=800, height=400, scale=3)
+                            pdf.image(tmpfile.name, x=pdf.l_margin, y=pdf.get_y(), w=page_width)
+                        os.remove(tmpfile.name)  # Temporäre Datei entfernen
+                except Exception as e:
+                    print(f"Fehler beim Hinzufügen von Diagrammen oder Bildern: {e}")
+
+                pdf.ln(spacing)    # Abstand nach jedem Diagramm oder Bild
+                
+        def add_xxmtext_and_charts_to_pdf(text, fig_list, pdf, title, orientation="P"):
+            """
+            Fügt Text und Diagramme zur PDF hinzu, mit dynamischer Seitenorientierung und maximal zwei Diagrammen pro Seite.
+
+            Args:
+                text (str): Der hinzuzufügende Text.
+                fig_list (list): Liste der Diagramme.
+                pdf (FPDF): Das FPDF-Objekt.
+                title (str): Der Titel der Seite.
+                orientation (str): Seitenorientierung, "P" für Hochformat, "L" für Querformat.
+            """
+            pdf.add_page(orientation=orientation)
+            pdf.set_font("Arial", size=16)
+            pdf.set_text_color(25, 118, 210)
+
+            # Titel der Seite
+            page_width = 200 if orientation == "P" else 290
+            pdf.cell(page_width, 10, txt=title, ln=True, align="L")
+
+            # Text hinzufügen
+            pdf.set_font("Arial", size=12)
+            pdf.multi_cell(0, 10, text)
+
+            # Diagramme hinzufügen
+            diagram_count = 0  # Zähler für Diagramme auf der Seite
+
+            for fig in fig_list:
+                # Diagramm als Bild speichern und hinzufügen
+                with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmpfile:
+                    fig.write_image(tmpfile.name)
+
+                    # Platz berechnen
+                    max_width = 200 if orientation == "P" else 290
+                    max_height = (pdf.h - pdf.t_margin - pdf.b_margin) / 2  # Platz für zwei Diagramme
+
+                    # Neue Seite starten, wenn bereits 2 Diagramme auf der aktuellen Seite sind
+                    if diagram_count == 2:
+                        pdf.add_page(orientation=orientation)
+                        diagram_count = 0
+
+                    # Diagramm hinzufügen
+                    pdf.image(tmpfile.name, x=10, y=pdf.get_y() + 10, w=max_width, h=max_height - 10)
+                    pdf.ln(max_height - 10 + 5)  # Abstand nach dem Diagramm
+
+                    # Temporäre Datei entfernen
+                    os.remove(tmpfile.name)
+
+                # Diagramm-Zähler erhöhen
+                diagram_count += 1
+        
+        # Diagramme für den Export           
         diagramme_list_1 = [anteil_liefertreue_bar, ueber_unterlieferung_bar]
-        diagramme_list_2 = [lieferperformance_linie]
+        diagramme_list_2 = [liefertreue_barchart, mengeabweichung_bar]
+        diagramme_list_3 = [top_10_verspätungen_bar, top10_mengeabweichungen_mat_bar]
+        diagramme_pfad_1 = "../reports/images/top10_lieferperformance_linie.png"
         
         # Export basierend auf der Auswahl
         if export_mode == "Nur Diagramme":
             add_plotly_chart_to_pdf(anteil_liefertreue_bar, pdf, "Diagramm aus Tab 1")
             add_plotly_chart_to_pdf(liefertreue_zeit_line, pdf, "Diagramm aus Tab 2")
             add_plotly_chart_to_pdf(ueber_unterlieferung_bar, pdf, "Diagramm aus Tab 3")
+            add_plotly_chart_to_pdf(liefertreue_barchart, pdf, "Diagramm aus Tab 3")
+            add_plotly_chart_to_pdf(mengeabweichung_bar, pdf, "Diagramm aus Tab 3")
+            
         elif export_mode == "Text und Diagramme":
-            #add_text_and_chart_to_pdf(content1, anteil_liefertreue_bar, pdf, "Tab 1: Text und Diagramm")
-            #add_text_and_chart_to_pdf(content1, liefertreue_zeit_line, pdf, "Tab 2: Text und Diagramm")
-            #add_text_and_chart_to_pdf(content3, ueber_unterlieferung_bar, pdf, "Tab 3: Text und Diagramm")
-            add_mtext_and_charts_to_pdf(content1, diagramme_list_1, pdf, "Liefertreue - Übersicht",orientation="P")
-            add_mtext_and_charts_to_pdf(content1, diagramme_list_2, pdf, "Betrachtung - Top 10 Risiko Lieferante",orientation="L")
-
+            add_xxmtext_and_charts_to_pdf(content1, diagramme_list_1, pdf, "Liefertreue - Übersicht",orientation="P")
+            add_png_text_and_charts_to_pdf(content1, [diagramme_pfad_1], pdf, "Betrachtung - Top 10 Risiko Lieferanten", orientation="L")
+            add_xxmtext_and_charts_to_pdf(content1, diagramme_list_2, pdf, "Lieferantenperformance",orientation="P")
+            add_xxmtext_and_charts_to_pdf(content1, diagramme_list_3, pdf, "Betrachtung - Material",orientation="P")
+            
         # PDF speichern
-        pdf_path = "tabs_export.pdf"
+        pdf_path = "report_liefertreue.pdf"
         pdf.output(pdf_path)
         st.success(f"PDF erfolgreich erstellt: {pdf_path}")
         st.write("Laden Sie die PDF hier herunter:")
         with open(pdf_path, "rb") as pdf_file:
-            st.download_button(label="Download PDF", data=pdf_file, file_name="tabs_export.pdf")
+            st.download_button(label="Download PDF", data=pdf_file, file_name="report_liefertreue_export.pdf")
             
 # Tab 4: Datenqualität
 with tabs[4]:
