@@ -1,4 +1,4 @@
-name: project
+name: project_analytics
 channels:
   - conda-forge
   - defaults
@@ -19,9 +19,9 @@ dependencies:
   - pandas
   - matplotlib
   - plotly
-  - scikit-learn
   - joblib
   - streamlit
   - fpdf
   - pip
+  - html2image
   - python-kaleido
