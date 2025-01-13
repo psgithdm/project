@@ -704,9 +704,9 @@ with tabs[3]:
         else:
             st.warning("Bitte wähle mindestens eine Spalte aus.")
    
-    content1 = st.text_area("Inhalt von Tab 1", "Dies ist der Inhalt von Tab 1.")
-    hidden_content = {"Tab 2": "Inhalt von Tab 2. Dies ist der Inhalt von Tab 2."}
-    content3 = st.text_area("Inhalt von Tab 3", "Dies ist der Inhalt von Tab 3.")
+    ##content1 = st.text_area("Inhalt von Tab 1", "Dies ist der Inhalt von Tab 1.")
+    ##hidden_content = {"Tab 2": "Inhalt von Tab 2. Dies ist der Inhalt von Tab 2."}
+    ##content3 = st.text_area("Inhalt von Tab 3", "Dies ist der Inhalt von Tab 3.")
     
     # Button für PDF-Export
     # Auswahl: Nur Diagramm oder Diagramm + Text
@@ -945,6 +945,7 @@ with tabs[3]:
         diagramme_list_3 = [top_10_verspätungen_bar, top10_mengeabweichungen_mat_bar]
         diagramme_pfad_1 = "../reports/images/top10_lieferperformance_linie.png"
         
+        content1 = ""
         # Export basierend auf der Auswahl
         if export_mode == "Nur Diagramme":
             add_plotly_chart_to_pdf(anteil_liefertreue_bar, pdf, "Diagramm aus Tab 1")
@@ -953,6 +954,8 @@ with tabs[3]:
             add_plotly_chart_to_pdf(liefertreue_barchart, pdf, "Diagramm aus Tab 3")
             add_plotly_chart_to_pdf(mengeabweichung_bar, pdf, "Diagramm aus Tab 3")
             
+        
+        
         elif export_mode == "Text und Diagramme":
             add_xxmtext_and_charts_to_pdf(content1, diagramme_list_1, pdf, "Liefertreue - Übersicht",orientation="P")
             add_png_text_and_charts_to_pdf(content1, [diagramme_pfad_1], pdf, "Betrachtung - Top 10 Risiko Lieferanten", orientation="L")
@@ -1073,6 +1076,6 @@ with tabs[6]:
     
     st.markdown("""
         **Support:**  
-        IT Hotline: 0800 123456  
-        08:00 - 18:00 Uhr
+        IT Hotline: online via SNOW-Portal 
+        24/24, 7/7
     """)  
