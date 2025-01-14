@@ -52,6 +52,17 @@ df_duplicate_data = df[df.duplicated()]  # Enthält nur die Duplikate
 df_cleaned = df.drop_duplicates()  # Duplikate entfernen
 df_cleaned.fillna({"WE-Menge": 0, "Soll-Menge": 0}, inplace=True)  # Fehlende Werte füllen
 
+anomalies = df_cleaned[
+    (df_cleaned["Soll-Menge"] < 0) |
+    (df_cleaned["WE-Menge"] < 0) |
+    (pd.to_datetime(df_cleaned["Wareneingangsdatum (WE)"], errors="coerce") <
+     pd.to_datetime(df_cleaned["Bestelldatum"], errors="coerce"))
+]
+
+df_cleaned = df_cleaned.drop(anomalies.index)
+
+var_anzahl_anomalie = len(anomalies)
+
 # Berechnung der Liefertreue und Mengenabweichung
 df_cleaned["Verspätung (Tage)"] = (
     pd.to_datetime(df_cleaned["Wareneingangsdatum (WE)"]) - pd.to_datetime(df_cleaned["Lieferdatum (Soll)"])
@@ -838,81 +849,6 @@ with tabs[3]:
         pdf.set_text_color(25, 118, 210)
         pdf.cell(200, 10, txt="Allgemeine - Kennzahlen - 2024", ln=True, align="L")
         pdf.image(metrics_image_path, x=10, y=30, w=180)
-        
-        content5 = """
-        
-        Der zugrundeliegende Datensatz repräsentiert Dummy-Daten, die auf realistischen Szenarien basieren.
-        Gesamt umfasst der Datensatz 30.000 Einträge** vor Datenbereinigung und Plausibilisierung. 
-        Die Datenquelle lautet: liefertreue_dataset_2024.xlsx von 14.01.2025. Die Datenanalyse findet auf Basis der bereinigten Daten statt. Dabei wurden insgesamt **28.924** Datensätze betrachtet. 
-        Daraus ergibt sich insgesamt 28.869 Lieferscheinnummer.Die Lieferdaten für **2024** verteilen sich von 01.01.2024 bis 31.12.2024 und beinhalten insgesamt 21 Lieferanten** und **32 Materialnummern**.
-        Die Lieferanten sind in insgesamt 8 Länder** vertreten.
-
-        Datenqualität:Es wurden 846 doppelte Einträge gefunden, diese wurden entfernt, demnach liegen sie zur Überprüfung unter ../data/processed/duplicates_dataset.xlsx 
-        und es wurden 230 Datenanomalien im Bezug zu den Datumsfeldern gefunden. Diese Daten liegen zur Überprüfung unter ../data/processed/anomalien_dataset_liefertreue_2024.xlsx.
-
-        Bemerkungen zur Datenquelle: Die Daten-Logik für diese Analyse stammen aus dem SAP-basierten Logistiksystem Automotive Supply. Sie wurden zuvor aus den relevanten Tabellen (z. B. EKKO, EKPO, EKBE, LIKP, LIPS, MSEG, MARA, MARC, MAKT, LFA1) extrahiert.
-        Diese Tabellen enthalten Informationen zu Bestellungen, Lieferungen, Material- und Lieferantenstammdaten, die essenziell für die Untersuchung der Liefertermintreue sind.
-        """
-        content1 = """
-        <div style="font-family: Arial, sans-serif; font-size: 18px; line-height: 1.8; color: #333;">
-            <h2 style="font-size: 24px; margin-bottom: 16px;">Überblick über den Datensatz</h2>
-            <ul>
-                <li>Der Datensatz basiert auf Dummy-Daten, die realistische Szenarien simulieren.</li>
-                <li><strong>Gesamteinträge</strong>: 30.000 (vor Bereinigung und Plausibilisierung).</li>
-                <li><strong>Bereinigte Einträge</strong>: 28.924.</li>
-                <li><strong>Lieferscheinnummern</strong>: 28.869.</li>
-            </ul>
-            <p>Die Lieferdaten decken das gesamte Jahr <strong>2024</strong> ab (01.01.2024 – 31.12.2024) und umfassen:</p>
-            <ul>
-                <li><strong>Lieferanten</strong>: 21.</li>
-                <li><strong>Materialnummern</strong>: 32.</li>
-                <li><strong>Länder</strong>: 8.</li>
-            </ul>
-            <hr>
-            <h2 style="font-size: 24px; margin-bottom: 16px;">Datenqualität</h2>
-            <ul>
-                <li><strong>Doppelte Einträge</strong>: 846 wurden entfernt und sind in der Datei
-                    <code>../data/processed/duplicates_dataset.xlsx</code> verfügbar.
-                </li>
-                <li><strong>Anomalien</strong>: 230 Datensätze mit inkonsistenten Datumsfeldern wurden identifiziert und in
-                    <code>../data/processed/anomalien_dataset_liefertreue_2024.xlsx</code> gespeichert.
-                </li>
-            </ul>
-            <hr>
-            <h2 style="font-size: 24px; margin-bottom: 16px;">Datenquelle</h2>
-            <p>Die Daten stammen aus einem <strong>SAP-basierten Logistiksystem</strong> und basieren auf Tabellen wie:</p>
-            <ul>
-                <li><strong>EKKO, EKPO, EKBE</strong> (Bestellungen)</li>
-                <li><strong>LIKP, LIPS</strong> (Lieferungen)</li>
-                <li><strong>MSEG</strong> (Materialbewegungen)</li>
-                <li><strong>MARA, MARC, MAKT</strong> (Materialstammdaten)</li>
-                <li><strong>LFA1</strong> (Lieferantenstammdaten)</li>
-            </ul>
-            <hr>
-            <h2 style="font-size: 24px; margin-bottom: 16px;">Besondere Hinweise</h2>
-            <ul>
-                <li>Der Datensatz wurde mithilfe von KI generiert, um realistische, aber nicht echte Daten zu simulieren.</li>
-                <li>Alle verwendeten Namen und Bezeichnungen sind zufällig gewählt und dienen nur der Illustration.</li>
-                <li>Es sind keine vertraulichen oder realen Informationen enthalten.</li>
-            </ul>
-        </div>
-        """
-        st.markdown(content1, unsafe_allow_html=True)
-        from html2image import Html2Image
-
-        # Screenshot von content1 erstellen
-        hti = Html2Image()
-        output_file = "content1_image.png"
-        hti.screenshot(html_str=content1, save_as=output_file)
-
-        # In die PDF einfügen
-        pdf.add_page()
-        pdf.image(output_file, x=10, y=30, w=180)
-        
-        # Inhalt in den PDF-Bericht einfügen
-        #pdf.set_font("Arial", size=10)
-        #df.ln(30)  # Abstand nach dem Bild
-        #pdf.multi_cell(0, 10, content1)
     
         # Funktion: Nur Diagramme
         def add_plotly_chart_to_pdf(fig, pdf, title):
@@ -1082,7 +1018,7 @@ with tabs[3]:
         diagramme_list_3 = [top_10_verspätungen_bar, top10_mengeabweichungen_mat_bar]
         diagramme_pfad_1 = "../reports/images/top10_lieferperformance_linie.png"
         
-        content1=""
+        content1 = ""
         
         # Export basierend auf der Auswahl
         if export_mode == "Kompakt":
