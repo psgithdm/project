@@ -25,3 +25,5 @@ dependencies:
   - pip
   - html2image
   - python-kaleido
+  - ipython
+  - scipy
